@@ -153,7 +153,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"   - *Entry Point*: `{entry}`\n"
             f"   - *Stop Loss*: `{sl}`\n"
             f"   - *Take Profit (RR 1:3)*: `{tp}`\n\n"
-            f"⚠️ *Disclaimer*: Ini adalah analisis yang dihasilkan oleh AI dan BUKAN merupakan nasihat finansial. Selalu lakukan riset Anda sendiri (DYOR) dan kelola risiko dengan baik."
+            f"⚠️ *Disclaimer*: Ini adalah analisis AI kelola risiko dengan baik."
         )
 
         await message.edit_text(response_message, parse_mode='Markdown')
