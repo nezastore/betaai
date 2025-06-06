@@ -34,19 +34,23 @@ except Exception as e:
     logger.error(f"Gagal konfigurasi Gemini AI: {e}")
     gemini_model = None
 
-# ==================== PROMPT ENGINEERING UNTUK BOT =========================
+# ==================== PROMPT ENGINEERING UNTUK BOT (REVISI) =========================
 # Ini adalah "otak" dari AI kita. Prompt yang bagus menghasilkan analisis yang bagus.
 PROMPT_TEMPLATE = """
-Anda adalah seorang analis teknikal profesional dan manajer risiko di dunia trading forex, saham, dan kripto. Anda sangat ahli dalam menganalisis chart trading.
+Anda adalah seorang analis teknikal profesional dan manajer risiko di dunia trading forex, saham, dan kripto. Anda sangat ahli dalam menganalisis chart trading dari gambar.
 
-Tugas Anda adalah menganalisis gambar screenshot dari sebuah chart trading yang saya berikan. Lakukan analisis secara mendalam dan berikan rencana trading yang konkret.
+Tugas Anda adalah menganalisis gambar screenshot dari sebuah chart trading yang saya berikan. Lakukan analisis secara mendalam dan berikan rencana trading yang konkret berdasarkan apa yang terlihat.
 
 Langkah-langkah analisis Anda:
 1.  **Identifikasi Aset & Timeframe**: Jika terlihat, sebutkan nama aset (misal: EURUSD, BTCUSDT) dan timeframe chart.
-2.  **Analisis Tren**: Tentukan apakah tren utama sedang Bullish (naik), Bearish (turun), atau Sideways (ranging). Gunakan garis tren atau struktur harga (higher highs, lower lows) sebagai acuan.
-3.  **Pola & Level Kunci**: Identifikasi pola chart (misal: Head and Shoulders, Double Top, Triangle), pola candlestick (misal: Engulfing, Doji, Hammer), dan level Support & Resistance yang paling signifikan.
-4.  **Sinyal Indikator**: Jika ada indikator teknikal yang terlihat (seperti Moving Averages, RSI, MACD), jelaskan sinyal yang diberikannya.
-5.  **Rencana Trading**: Berdasarkan semua analisis di atas, buat sebuah hipotesis atau rencana trading. Tentukan apakah akan mengambil posisi Long (Beli) atau Short (Jual).
+2.  **Analisis Tren Utama**: Tentukan apakah tren utama sedang Bullish (naik), Bearish (turun), atau Sideways (ranging). Gunakan garis tren atau struktur harga (higher highs, lower lows) sebagai acuan.
+3.  **Analisis Visual Inti**: Fokus utama pada **price action** dan struktur pasar. Identifikasi elemen berikut:
+    - **Pola Chart & Candlestick**: Cari pola chart (misal: Head and Shoulders, Double Top, Triangle) dan pola candlestick penting (misal: Engulfing, Doji).
+    - **Level Support & Resistance**: Tentukan level-level kunci di mana harga kemungkinan akan bereaksi.
+    - **Analisis sentimen pasar berdasarkan berita.
+    - **Visualisasi grafik.
+    - **Indikator (Jika Ada)**: Jika dan hanya jika ada indikator teknikal yang terlihat di chart (seperti Moving Average, RSI, dll.), jelaskan sinyal yang diberikannya. **Jika tidak ada indikator sama sekali (chart kosong), cukup fokus pada analisis price action dan jangan sebutkan tentang ketiadaan indikator.**
+4.  **Rencana Trading**: Berdasarkan semua analisis di atas, buat sebuah hipotesis atau rencana trading. Tentukan apakah akan mengambil posisi Long (Beli) atau Short (Jual).
 
 **FORMAT OUTPUT (SANGAT PENTING!)**:
 Sajikan hasil analisis Anda dalam format yang SAMA PERSIS seperti di bawah ini, menggunakan tag yang telah ditentukan. JANGAN mengubah format ini.
@@ -113,7 +117,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler untuk pesan gambar."""
-    message = await update.message.reply_text("🧠 Menerima gambar... Menganalisis dengan Autobot AI, mohon tunggu sebentar...")
+    message = await update.message.reply_text("🧠 Menerima gambar... Menganalisis dengan AI, mohon tunggu sebentar...")
 
     try:
         photo_file = await update.message.photo[-1].get_file()
@@ -144,16 +148,25 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tp = parsed_data.get('tp', 'N/A').strip()
 
         icon = "📈" if "bullish" in arah.lower() else "📉" if "bearish" in arah.lower() else "📊"
+        
+        # <<< PENAMBAHAN FITUR DI SINI >>>
+        # Menentukan label rencana trading berdasarkan arah
+        if "bullish" in arah.lower():
+            rencana_label = "🟢 Rencana Beli (Long)"
+        elif "bearish" in arah.lower():
+            rencana_label = "🔴 Rencana Jual (Short)"
+        else:
+            rencana_label = "⚪️ Rencana Netral"
 
         response_message = (
-            f"*{icon} Hasil Analisis Chart dari Gemini AI*\n\n"
+            f"*{icon} Hasil Analisis Chart dari AI*\n\n"
             f"🎯 *Potensi Arah*: `{arah}`\n\n"
             f"💬 *Analisis Mendalam*:\n{analisis}\n\n"
-            f"📋 *Rencana Trading (Hipotesis)*:\n"
+            f"📋 *{rencana_label}*:\n" # <<< PERUBAHAN DI SINI >>>
             f"   - *Entry Point*: `{entry}`\n"
             f"   - *Stop Loss*: `{sl}`\n"
             f"   - *Take Profit (RR 1:3)*: `{tp}`\n\n"
-            f"⚠️ *Disclaimer*: Ini adalah analisis AI kelola risiko dengan baik."
+            f"⚠️ *Disclaimer*: Selalu kelola risiko dengan baik."
         )
 
         await message.edit_text(response_message, parse_mode='Markdown')
