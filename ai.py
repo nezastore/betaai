@@ -129,18 +129,63 @@ def analyze_sentiment():
 
 # ==================== Command Handler =========================
 def prediksi(update: Update, context: CallbackContext):
- try:
-     if not context.args:
-         update_message.reply_text("Gunakan perintah dengan format: /prediksi (pair mata uang), contoh: /prediksi EURUSD")
-         return
-     pair = context.args[0].upper()
+    try:
+        if not context.args:
+            update.message.reply_text("Gunakan perintah dengan format: /prediksi (pair mata uang), contoh: /prediksi EURUSD")
+            return
+        pair = context.args[0].upper()
 
-     # Ambil data
-     df = fetch_forex_data(pair)
+        # Ambil data
+        df = fetch_forex_data(pair)
+        
+        # Lanjutkan dengan pemrosesan data (analisis teknikal, dll.)
+        ma_short, ma_long, rsi, trend = analyze_technical(df)
+        entry, sl, tp = determine_levels(df, trend)
+        
+        # Buat chart
+        chart_buffer = create_chart(df, ma_short, ma_long, entry, sl, tp, pair)
+        
+        # Analisis sentimen
+        sentiment, sentiment_score = analyze_sentiment()
 
-     # --- Tambahkan blok except DI SINI ---
- except Exception as e: # Ini akan menangkap semua jenis error
-     print(f"Error saat mengambil data atau memproses permintaan: {e}")
-     update_message.reply_text(f"Maaf, terjadi error saat mencoba mengambil data untuk {pair}. Mohon coba lagi nanti atau pastikan pair mata uang benar.")
-     return # Penting untuk menghentikan eksekusi jika terjadi error
+        # Kirim hasil
+        message = (
+            f"📊 Prediksi Forex untuk {pair} ({TIMEFRAME}):\n\n"
+            f"📈 Tren (MA Crossover): **{trend}**\n"
+            f"💹 RSI Terbaru: **{rsi.iloc[-1]:.2f}**\n\n"
+            f"✨ Level Penting:\n"
+            f"  Entry: **{entry:.5f}**\n"
+            f"  Stop Loss (SL): **{sl:.5f}**\n"
+            f"  Take Profit (TP): **{tp:.5f}**\n\n"
+            f"📰 Sentimen Berita: **{sentiment}** (Score: {sentiment_score:.2f})\n\n"
+            f"_(Catatan: Prediksi ini murni indikatif dan bukan saran keuangan. Selalu lakukan riset Anda sendiri.)_"
+        )
+        update.message.reply_photo(photo=InputFile(chart_buffer), caption=message, parse_mode='Markdown')
+
+    except ValueError as ve:
+        error_message = f"🚫 Error: {ve}"
+        print(error_message) # Debugging log
+        update.message.reply_text(error_message)
+    except requests.exceptions.RequestException as re:
+        error_message = f"📡 Error koneksi API Twelve Data: {re}. Pastikan API Key valid dan ada koneksi internet."
+        print(error_message) # Debugging log
+        update.message.reply_text(error_message)
+    except Exception as e:
+        error_message = f"🚨 Terjadi kesalahan tak terduga: {e}"
+        print(error_message) # Debugging log
+        update.message.reply_text(error_message)
+
+# ==================== Main =========================
+def main():
+    updater = Updater(TELEGRAM_TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("prediksi", prediksi))
+
+    logger.info("Bot dimulai...")
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == "__main__":
+    main()
 
