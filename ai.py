@@ -129,11 +129,18 @@ def analyze_sentiment():
 
 # ==================== Command Handler =========================
 def prediksi(update: Update, context: CallbackContext):
-    try:
-        if not context.args:
-            update.message.reply_text("Gunakan perintah dengan format: /prediksi <PAIR>, contoh: /prediksi EUR/USD")
-            return
-        pair = context.args[0].upper()
-        
-        # Ambil data
-        df = fetch_forex_data(pair)
+ try:
+     if not context.args:
+         update_message.reply_text("Gunakan perintah dengan format: /prediksi (pair mata uang), contoh: /prediksi EURUSD")
+         return
+     pair = context.args[0].upper()
+
+     # Ambil data
+     df = fetch_forex_data(pair)
+
+     # --- Tambahkan blok except DI SINI ---
+ except Exception as e: # Ini akan menangkap semua jenis error
+     print(f"Error saat mengambil data atau memproses permintaan: {e}")
+     update_message.reply_text(f"Maaf, terjadi error saat mencoba mengambil data untuk {pair}. Mohon coba lagi nanti atau pastikan pair mata uang benar.")
+     return # Penting untuk menghentikan eksekusi jika terjadi error
+
