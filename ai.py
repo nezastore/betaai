@@ -113,7 +113,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler untuk pesan gambar."""
-    message = await update.message.reply_text("🧠 Menerima gambar... Menganalisis dengan Gemini AI, mohon tunggu sebentar...")
+    message = await update.message.reply_text("🧠 Menerima gambar... Menganalisis dengan Autobot AI, mohon tunggu sebentar...")
 
     try:
         photo_file = await update.message.photo[-1].get_file()
