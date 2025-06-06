@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Konfigurasi Google Gemini AI
 try:
     genai.configure(api_key=GEMINI_API_KEY)
-    gemini_model = genai.GenerativeModel('gemini-pro-vision')
+    gemini_model = genai.GenerativeModel('gemini-1.5-flash-latest')
     logger.info("Koneksi ke AI berhasil.")
 except Exception as e:
     logger.error(f"Gagal konfigurasi Gemini AI: {e}")
