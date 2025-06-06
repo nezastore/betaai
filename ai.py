@@ -58,8 +58,8 @@ Sajikan hasil analisis Anda dalam format yang SAMA PERSIS seperti di bawah ini, 
 [ARAH]: (Bullish/Bearish/Netral)
 [ANALISIS]: (Tuliskan analisis lengkap Anda di sini dalam beberapa paragraf. Jelaskan alasan di balik keputusan Anda dengan logika yang kuat berdasarkan apa yang Anda lihat di chart.)
 [ENTRY]: (Tentukan satu titik harga spesifik untuk entry. Contoh: 1.08500)
-[SL]: (Tentukan satu titik harga spesifik untuk Stop Loss. Letakkan di level yang logis Jangan terlalu dekat dengan Entry.)
-[TP]: (Tentukan satu titik harga spesifik untuk Take Profit. Pastikan Risk/Reward Ratio antara SL dan TP adalah 5-15 Pips. Hitung secara akurat.)
+[SL]: (Tentukan satu titik harga spesifik untuk Stop Loss. Letakkan di level yang logis.)
+[TP]: (Tentukan satu titik harga spesifik untuk Take Profit. Pastikan Risk/Reward Ratio antara SL dan TP adalah 1:3. Hitung secara akurat.)
 
 ---
 **Aturan Tambahan**:
