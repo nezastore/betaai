@@ -174,7 +174,7 @@ def main():
     """Start the bot."""
     # Create the Updater and pass it your bot's token.
     # Hapus use_context=True karena sudah tidak digunakan di versi baru
-    updater = Updater(API_TOKEN, update_queue=None, use_context=True)
+    updater = Updater(API_TOKEN, update_queue=None)
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
