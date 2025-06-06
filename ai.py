@@ -10,7 +10,7 @@ from ta.momentum import RSIIndicator
 from textblob import TextBlob
 
 # ==================== CONFIG ===========================
-TELEGRAM_TOKEN = "7927741258:AAFVVCig7i2_jAavoBerZi0MzX0BAg8Vyko"
+API_TOKEN = "7927741258:AAFVVCig7i2_jAavoBerZi0MzX0BAg8Vyko"  # Ganti dengan token API bot Telegram Anda yang sebenarnya
 TWELVEDATA_API_KEY = "76d6393478d3421ab78202f8495e6d62"
 # Default timeframe dan periode untuk analisis
 TIMEFRAME = "1h"  # Bisa juga gantikan dengan "15min", "1day"
