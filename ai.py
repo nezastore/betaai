@@ -11,7 +11,7 @@ from textblob import TextBlob
 
 # ==================== CONFIG ===========================
 API_TOKEN = "7927741258:AAFVVCig7i2_jAavoBerZi0MzX0BAg8Vyko"
-TWELVEDATA_API_KEY = "76d6393478d3421ab78202f8495e6d62"
+TWELVEDATA_API_KEY = "09e16abe4f9548a4b1adde2f92c08e3c"
 TIMEFRAME = "1h"
 PERIOD_MA_SHORT = 7
 PERIOD_MA_LONG = 21
