@@ -129,63 +129,66 @@ def analyze_sentiment():
 
 # ==================== Command Handler =========================
 def prediksi(update: Update, context: CallbackContext):
-    try:
-        if not context.args:
-            update.message.reply_text("Gunakan perintah dengan format: /prediksi (pair mata uang), contoh: /prediksi EURUSD")
-            return
-        pair = context.args[0].upper()
+ try:
+     if not context.args:
+         update.message.reply_text("Gunakan perintah dengan format: /prediksi (pair mata uang), contoh: /prediksi EURUSD")
+         return
+     pair = context.args[0].upper()
 
-        # Ambil data
-        df = fetch_forex_data(pair)
-        
-        # Lanjutkan dengan pemrosesan data (analisis teknikal, dll.)
-        ma_short, ma_long, rsi, trend = analyze_technical(df)
-        entry, sl, tp = determine_levels(df, trend)
-        
-        # Buat chart
-        chart_buffer = create_chart(df, ma_short, ma_long, entry, sl, tp, pair)
-        
-        # Analisis sentimen
-        sentiment, sentiment_score = analyze_sentiment()
+     # Ambil data
+     df = fetch_forex_data(pair)
 
-        # Kirim hasil
-        message = (
-            f"📊 Prediksi Forex untuk {pair} ({TIMEFRAME}):\n\n"
-            f"📈 Tren (MA Crossover): **{trend}**\n"
-            f"💹 RSI Terbaru: **{rsi.iloc[-1]:.2f}**\n\n"
-            f"✨ Level Penting:\n"
-            f"  Entry: **{entry:.5f}**\n"
-            f"  Stop Loss (SL): **{sl:.5f}**\n"
-            f"  Take Profit (TP): **{tp:.5f}**\n\n"
-            f"📰 Sentimen Berita: **{sentiment}** (Score: {sentiment_score:.2f})\n\n"
-            f"_(Catatan: Prediksi ini murni indikatif dan bukan saran keuangan. Selalu lakukan riset Anda sendiri.)_"
-        )
-        update.message.reply_photo(photo=InputFile(chart_buffer), caption=message, parse_mode='Markdown')
+     # Analisis teknikal
+     ma_short, ma_long, rsi, trend = analyze_technical(df)
+     entry, sl, tp = determine_levels(df, trend)
+     
+     # Analisis sentimen
+     sentiment, sentiment_score = analyze_sentiment()
 
-    except ValueError as ve:
-        error_message = f"🚫 Error: {ve}"
-        print(error_message) # Debugging log
-        update.message.reply_text(error_message)
-    except requests.exceptions.RequestException as re:
-        error_message = f"📡 Error koneksi API Twelve Data: {re}. Pastikan API Key valid dan ada koneksi internet."
-        print(error_message) # Debugging log
-        update.message.reply_text(error_message)
-    except Exception as e:
-        error_message = f"🚨 Terjadi kesalahan tak terduga: {e}"
-        print(error_message) # Debugging log
-        update.message.reply_text(error_message)
+     # Buat chart
+     buf = create_chart(df, ma_short, ma_long, entry, sl, tp, pair)
+     
+     # Kirim hasil ke pengguna
+     message = (
+         f"💰 *Prediksi Forex untuk {pair} ({TIMEFRAME})*\n\n"
+         f"📊 *Analisis Teknikal:*\n"
+         f"  - Tren: `{trend}`\n"
+         f"  - Entry: `{entry:.5f}`\n"
+         f"  - Stop Loss: `{sl:.5f}`\n"
+         f"  - Take Profit: `{tp:.5f}`\n"
+         f"  - RSI: `{rsi.iloc[-1]:.2f}`\n\n"
+         f"📰 *Analisis Sentimen Berita:*\n"
+         f"  - Sentimen: `{sentiment}` (Skor: `{sentiment_score:.2f}`)\n\n"
+         f"Catatan: Prediksi ini bersifat indikatif."
+     )
+     
+     update.message.reply_photo(photo=InputFile(buf, filename=f'{pair}_chart.png'), caption=message, parse_mode='Markdown')
 
-# ==================== Main =========================
+ except Exception as e: # Ini akan menangkap semua jenis error
+     logger.error(f"Error saat memproses perintah /prediksi: {e}", exc_info=True) # Tambahkan logging detail error
+     update.message.reply_text(f"Maaf, terjadi error saat mencoba mengambil data atau memproses permintaan Anda. Mohon coba lagi nanti atau pastikan pair mata uang benar.")
+     return # Penting untuk menghentikan eksekusi jika terjadi error
+
+# ==================== Fungsi Main =========================
 def main():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
+    """Start the bot."""
+    # Create the Updater and pass it your bot's token.
+    # Hapus use_context=True karena sudah tidak digunakan di versi baru
+    updater = Updater(TELEGRAM_TOKEN) 
 
-    dp.add_handler(CommandHandler("prediksi", prediksi))
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
 
-    logger.info("Bot dimulai...")
+    # on different commands - answer in Telegram
+    dispatcher.add_handler(CommandHandler("prediksi", prediksi))
+
+    # Start the Bot
     updater.start_polling()
+
+    # Run the bot until you press Ctrl-C or the process receives SIGINT,
+    # SIGTERM or SIGABRT. This should be used most of the time, since
+    # start_polling() is non-blocking and will stop the bot gracefully.
     updater.idle()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
-
