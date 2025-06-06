@@ -1,177 +1,139 @@
-import os
-import io
+import logging
 import requests
 import pandas as pd
 import mplfinance as mpf
+from io import BytesIO
+from telegram import Bot, Update, InputFile
+from telegram.ext import CommandHandler, Updater, CallbackContext
+from ta.trend import SMAIndicator
 from ta.momentum import RSIIndicator
-from telegram import Update, InputFile
-from telegram.ext import Updater, CommandHandler, CallbackContext
 from textblob import TextBlob
-from datetime import datetime
 
-# Settings
-TWELVE_DATA_API_KEY = "76d6393478d3421ab78202f8495e6d62"
-TELEGRAM_BOT_TOKEN = "7927741258:AAFVVCig7i2_jAavoBerZi0MzX0BAg8Vyko"
+# ==================== CONFIG ===========================
+TELEGRAM_TOKEN = "7927741258:AAFVVCig7i2_jAavoBerZi0MzX0BAg8Vyko"
+TWELVEDATA_API_KEY = "76d6393478d3421ab78202f8495e6d62"
+# Default timeframe dan periode untuk analisis
+TIMEFRAME = "1h"  # Bisa juga gantikan dengan "15min", "1day"
+PERIOD_MA_SHORT = 7
+PERIOD_MA_LONG = 21
+RSI_PERIOD = 14
 
-def fetch_forex_data(pair: str, interval='15min', outputsize=100):
-    symbol = pair.upper().replace('/', '')
-    url = f"https://api.twelvedata.com/time_series?symbol={symbol}&interval={interval}&outputsize={outputsize}&format=JSON&apikey={TWELVE_DATA_API_KEY}"
-    resp = requests.get(url)
-    data = resp.json()
+# ==================== LOGGING =========================
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ==================== Fungsi Ambil Data Harga =========================
+def fetch_forex_data(pair: str, interval: str = TIMEFRAME, outputsize=100) -> pd.DataFrame:
+    symbol = pair.upper().replace("/", "")
+    url = f"https://api.twelvedata.com/time_series"
+    params = {
+        "symbol": symbol,
+        "interval": interval,
+        "apikey": TWELVEDATA_API_KEY,
+        "format": "JSON",
+        "outputsize": outputsize,
+        "timezone": "UTC"
+    }
+    res = requests.get(url, params=params)
+    data = res.json()
     if "values" not in data:
-        raise ValueError(f"Error fetching data: {data.get('message', 'unknown error')}")
-    df = pd.DataFrame(data['values'])
-    df['datetime'] = pd.to_datetime(df['datetime'])
-    df = df.set_index('datetime')
-    df = df.astype(float)
+        raise ValueError(f"Error fetching data: {data.get('message', 'Unknown error')}")
+    df = pd.DataFrame(data["values"])
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df.set_index("datetime", inplace=True)
     df = df.sort_index()
+    # Convert to numeric
+    for col in ["open", "high", "low", "close", "volume"]:
+        df[col] = pd.to_numeric(df[col])
     return df
 
-def calculate_indicators(df: pd.DataFrame):
-    df['MA_short'] = df['close'].rolling(window=5).mean()
-    df['MA_long'] = df['close'].rolling(window=20).mean()
-    rsi_indicator = RSIIndicator(df['close'], window=14)
-    df['RSI'] = rsi_indicator.rsi()
-    return df
-
-def analyze_trend(df: pd.DataFrame):
-    latest = df.iloc[-1]
-    prev = df.iloc[-2]
-
+# ==================== Fungsi Analisis Teknikal =========================
+def analyze_technical(df: pd.DataFrame):
+    # Hitung MA pendek dan MA panjang
+    ma_short = SMAIndicator(df["close"], PERIOD_MA_SHORT).sma_indicator()
+    ma_long = SMAIndicator(df["close"], PERIOD_MA_LONG).sma_indicator()
+    rsi = RSIIndicator(df["close"], RSI_PERIOD).rsi()
+    
+    # Sinyal MA crossover
     trend = "Sideways"
-    signal = None
-
-    # MA crossover
-    if prev['MA_short'] < prev['MA_long'] and latest['MA_short'] > latest['MA_long']:
+    if ma_short.iloc[-2] < ma_long.iloc[-2] and ma_short.iloc[-1] > ma_long.iloc[-1]:
         trend = "Bullish"
-        signal = "Buy"
-    elif prev['MA_short'] > prev['MA_long'] and latest['MA_short'] < latest['MA_long']:
+    elif ma_short.iloc[-2] > ma_long.iloc[-2] and ma_short.iloc[-1] < ma_long.iloc[-1]:
         trend = "Bearish"
-        signal = "Sell"
     else:
-        signal = "Hold"
+        if ma_short.iloc[-1] > ma_long.iloc[-1]:
+            trend = "Bullish"
+        elif ma_short.iloc[-1] < ma_long.iloc[-1]:
+            trend = "Bearish"
 
-    rsi = latest['RSI']
-    rsi_status = "Neutral"
-    if rsi is not None:
-        if rsi > 70:
-            rsi_status = "Overbought"
-        elif rsi < 30:
-            rsi_status = "Oversold"
+    return ma_short, ma_long, rsi, trend
 
-    return trend, signal, rsi, rsi_status
+# ==================== Fungsi Tentukan Entry, SL, TP =========================
+def determine_levels(df: pd.DataFrame, trend: str):
+    close = df["close"].iloc[-1]
+    if trend == "Bullish":
+        entry = close
+        sl = entry * 0.995  # SL 0.5% dibawah entry
+        tp = entry + (entry - sl) * 3  # TP rasio 3:1
+    elif trend == "Bearish":
+        entry = close
+        sl = entry * 1.005  # SL 0.5% di atas entry
+        tp = entry - (sl - entry) * 3
+    else:
+        entry = sl = tp = close
+    return entry, sl, tp
 
-def determine_levels(df: pd.DataFrame, signal: str):
-    latest_close = df['close'].iloc[-1]
-    sl = None
-    tp = None
-    risk = 0.005  # 0.5% risk as default
-
-    if signal == "Buy":
-        sl = latest_close * (1 - risk)
-        tp = latest_close + (latest_close - sl) * 3
-    elif signal == "Sell":
-        sl = latest_close * (1 + risk)
-        tp = latest_close - (sl - latest_close) * 3
-
-    if sl is not None:
-        sl = round(sl, 5)
-    if tp is not None:
-        tp = round(tp, 5)
-
-    return round(latest_close, 5), sl, tp
-
-def draw_chart(df: pd.DataFrame, pair: str, entry: float, sl: float, tp: float):
+# ==================== Fungsi Buat Chart =========================
+def create_chart(df: pd.DataFrame, ma_short, ma_long, entry, sl, tp, pair: str):
     apds = [
-        mpf.make_addplot(df['MA_short'], color='blue'),
-        mpf.make_addplot(df['MA_long'], color='orange'),
-        mpf.make_addplot(df['RSI'], panel=1, color='green'),
+        mpf.make_addplot(ma_short, color='blue'),
+        mpf.make_addplot(ma_long, color='red')
     ]
 
-    fig, axlist = mpf.plot(df,
-                           type='candle',
-                           style='yahoo',
-                           addplot=apds,
-                           returnfig=True,
-                           figscale=1.2,
-                           title=f'{pair} Chart with MA and RSI',
-                           ylabel='Price',
-                           ylabel_panel='RSI',
-                           panel_ratios=(3,1))
+    fig, axlist = mpf.plot(df, type='candle', style='yahoo', addplot=apds, returnfig=True,
+                           title=f"{pair} - Forex Prediction", figsize=(10,6))
+    ax = axlist[0]
 
-    ax = axlist[0]  # price axis
-    # Draw entry, SL, TP lines
-    ymin, ymax = ax.get_ylim()
-    ax.hlines([entry, sl, tp], xmin=df.index[0], xmax=df.index[-1],
-              colors=['green', 'red', 'purple'], linestyles=['--','--','--'],
-              label=['Entry', 'Stop Loss', 'Take Profit'])
+    # Tandai entry, SL, TP
+    last_date = df.index[-1]
+    ax.hlines([entry, sl, tp], xmin=df.index[0], xmax=last_date, colors=['green', 'red', 'orange'], linestyles='--')
+    ax.text(df.index[0], entry, 'Entry', color='green', verticalalignment='bottom')
+    ax.text(df.index[0], sl, 'SL', color='red', verticalalignment='bottom')
+    ax.text(df.index[0], tp, 'TP', color='orange', verticalalignment='bottom')
 
-    ax.legend(['MA Short', 'MA Long', 'Entry', 'Stop Loss', 'Take Profit'])
-
-    # Save to buffer
-    buf = io.BytesIO()
+    # Simpan ke buffer
+    buf = BytesIO()
     fig.savefig(buf, format='png')
     buf.seek(0)
     return buf
 
-def analyze_sentiment(pair: str):
-    # Simple sentiment analysis from forex news titles (static examples due to no web scraping)
-    # In actual bot, fetch RSS feed and analyze titles for pair relevance
-    example_news = [
-        "EURUSD bullish momentum expected to continue",
-        "US dollar weakens as risk appetite returns",
-        "GBPUSD faces resistance amid Brexit concerns"
-    ]
-    sentiments = []
-    for news in example_news:
-        if pair.upper().replace('/', '') in news.replace(' ', '').upper():
-            blob = TextBlob(news)
-            sentiments.append(blob.sentiment.polarity)
-    if sentiments:
-        avg_sentiment = sum(sentiments) / len(sentiments)
-        if avg_sentiment > 0.1:
-            return "Positive"
-        elif avg_sentiment < -0.1:
-            return "Negative"
-        else:
-            return "Neutral"
+# ==================== Fungsi Analisis Sentimen Berita Sederhana =========================
+def analyze_sentiment():
+    # Placeholder: Bisa diganti dengan ambil RSS/API berita forex dan analisa judulnya
+    # Sekarang kita buat dummy sentiment positif
+    sentiment = "Netral"
+    score = 0.0
+    
+    # Contoh analisa sederhana dengan TextBlob, ganti dengan API atau RSS nyata
+    sample_news_title = "Euro menguat karena data ekonomi AS lemah"
+    blob = TextBlob(sample_news_title)
+    polarity = blob.sentiment.polarity
+    if polarity > 0.1:
+        sentiment = "Positif"
+    elif polarity < -0.1:
+        sentiment = "Negatif"
     else:
-        return "No relevant news found"
+        sentiment = "Netral"
+    score = polarity
+    return sentiment, score
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Halo! Gunakan perintah /prediksi <PAIR>, contoh: /prediksi EUR/USD")
-
+# ==================== Command Handler =========================
 def prediksi(update: Update, context: CallbackContext):
     try:
-        if len(context.args) != 1:
-            update.message.reply_text("Format salah. Gunakan: /prediksi <PAIR> contoh: /prediksi EUR/USD")
+        if not context.args:
+            update.message.reply_text("Gunakan perintah dengan format: /prediksi <PAIR>, contoh: /prediksi EUR/USD")
             return
         pair = context.args[0].upper()
-
-        update.message.reply_text(f"Mengambil data dan melakukan analisis untuk pair {pair}...")
-
-        # Fetch data
+        
+        # Ambil data
         df = fetch_forex_data(pair)
-
-        # Calculate indicators
-        df = calculate_indicators(df)
-
-        # Analyze trend and signal
-        trend, signal, rsi, rsi_status = analyze_trend(df)
-
-        # Determine entry, SL, TP
-        entry, sl, tp = determine_levels(df, signal)
-
-        # Analyze sentiments
-        sentiment = analyze_sentiment(pair)
-
-        # Draw chart
-        chart_buf = draw_chart(df, pair, entry, sl, tp)
-
-        # Compose message
-        msg = (f"Pair: {pair}\n"
-               f"Trend saat ini: {trend}\n"
-               f"Signal: {signal}\n"
-               f"RSI: {rsi:.2f} ({rsi_status})\n"
-               f"
-  
