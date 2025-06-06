@@ -15,8 +15,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ==================== KONFIGURASI =========================
-TELEGRAM_TOKEN = os.getenv("7927741258:AAFVVCig7i2_jAavoBerZi0MzX0BAg8Vyko")
-GEMINI_API_KEY = os.getenv("AIzaSyDn_mFWC3blDrHDArL54pECw-wTKbOESdw")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # Konfigurasi logging untuk debugging
 logging.basicConfig(
