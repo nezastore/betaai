@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
 from telegram import Bot, Update, InputFile
-from telegram.ext import CommandHandler, Updater, CallbackContext
+from telegram.ext import CommandHandler, Application, ApplicationBuilder, ContextTypes
 from ta.trend import SMAIndicator
 from ta.momentum import RSIIndicator
 from textblob import TextBlob
@@ -126,7 +126,7 @@ def analyze_sentiment():
     return sentiment, score
 
 # ==================== Command Handler =========================
-def prediksi(update: Update, context: CallbackContext):
+def prediksi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if not context.args:
             update.message.reply_text("Gunakan perintah dengan format: /prediksi (pair mata uang), contoh: /prediksi EURUSD")
@@ -161,12 +161,11 @@ def prediksi(update: Update, context: CallbackContext):
 
 # ==================== Fungsi Main =========================
 def main():
-    updater = Updater(API_TOKEN)
-    dispatcher = updater.dispatcher
-    dispatcher.add_handler(CommandHandler("prediksi", prediksi))
-    updater.start_polling()
-    updater.idle()
+    application = ApplicationBuilder().token(API_TOKEN).build()
+    application.add_handler(CommandHandler("prediksi", prediksi))
+    
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
-    
+        
